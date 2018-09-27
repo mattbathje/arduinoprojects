@@ -1,7 +1,7 @@
 int needToPrint = 0;
 int count;
-int in = 50;
-int out = 23;
+int in = 33;
+int out = 25;
 int lastState = LOW;
 int trueState = LOW;
 long lastStateChangeTime = 0;
