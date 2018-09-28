@@ -98,7 +98,11 @@ long phone_lit_at = 0;
 #define GREEN_RGB_OUT 8
 #define BLUE_RGB_OUT 9
 
+//prox sensor
+#define PROX_IN A3
 
+//voltmeter 
+#define VM_OUT 4
 
 
 void setup() {
@@ -161,7 +165,9 @@ void setup() {
   pinMode(GREEN_RGB_OUT, OUTPUT);
   pinMode(BLUE_RGB_OUT, OUTPUT);
 
-
+  // setup prox and voltmeter
+  pinMode(PROX_IN, INPUT);
+  pinMode(VM_OUT, OUTPUT);
 
 }
 
@@ -173,7 +179,8 @@ void loop() {
   process_phone_dial();
 
   process_rgb_dials();
-  
+
+  process_prox_sensor();
 
 }
 
@@ -281,14 +288,17 @@ void process_rgb_dials() {
   int green_val = analogRead(GREEN_RGB_POT_IN);
   int blue_val = analogRead(BLUE_RGB_POT_IN);
 
-  red_val = map(red_val, 0, 1023, 0, 255);
-  green_val = map(green_val, 0, 1023, 0, 255);
-  blue_val = map(blue_val, 0, 1023, 0, 255);
+  red_val = constrain(map(red_val, 0, 1023, 0, 255), 0, 255);
+  green_val = constrain(map(green_val, 0, 1023, 0, 255), 0, 255);
+  blue_val = constrain(map(blue_val, 0, 1023, 0, 255), 0, 255);
 
   analogWrite(RED_RGB_OUT, red_val);
   analogWrite(GREEN_RGB_OUT, green_val);
   analogWrite(BLUE_RGB_OUT, blue_val);
-  
-Serial.println(blue_val);
-  
+}
+
+void process_prox_sensor() {
+  int prox_reading = analogRead(PROX_IN);
+  int vm_output = constrain(map(prox_reading, 100, 600, 0, 255), 0, 255);
+  analogWrite(VM_OUT, vm_output);
 }
