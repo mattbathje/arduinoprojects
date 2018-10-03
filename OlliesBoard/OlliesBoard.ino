@@ -1,5 +1,32 @@
 #include <Arduino.h>
 #include "ShiftRegister74HC595.h"
+#include <bitswap.h>
+#include <chipsets.h>
+#include <color.h>
+#include <colorpalettes.h>
+#include <colorutils.h>
+#include <controller.h>
+#include <cpp_compat.h>
+#include <dmx.h>
+#include <FastLED.h>
+#include <fastled_config.h>
+#include <fastled_delay.h>
+#include <fastled_progmem.h>
+#include <fastpin.h>
+#include <fastspi.h>
+#include <fastspi_bitbang.h>
+#include <fastspi_dma.h>
+#include <fastspi_nop.h>
+#include <fastspi_ref.h>
+#include <fastspi_types.h>
+#include <hsv2rgb.h>
+#include <led_sysdefs.h>
+#include <lib8tion.h>
+#include <noise.h>
+#include <pixelset.h>
+#include <pixeltypes.h>
+#include <platforms.h>
+#include <power_mgt.h>
 
 #define DEBUG true
 #define Serial if(DEBUG)Serial
@@ -7,8 +34,13 @@
 // debounce time for the buttons
 #define DEBOUNCE 200
 
+// random seed (don't plug anything into this...
+#define RANDOM_SEED A15
+
 // current time
-long current_program_time = millis();
+unsigned long current_program_time = millis();
+// previous time
+unsigned long previous_program_time = 0;
 
 // LED shift register output
 #define LED_NUM_SHIFT_REGS 2
@@ -24,7 +56,7 @@ ShiftRegister74HC595 ledShiftRegister(2, LED_DATA_OUT, LED_CLOCK_OUT, LED_LATCH_
 int red_btn_curr_state = HIGH;
 int red_btn_reading;
 int red_btn_prev_state = LOW;
-long red_btn_press_time = 0;
+unsigned long red_btn_press_time = 0;
 
 // white toggle switch
 #define WHITE_TGL_OUT_SR 11
@@ -32,7 +64,7 @@ long red_btn_press_time = 0;
 int white_tgl_curr_state = HIGH;
 int white_tgl_reading;
 int white_tgl_prev_state = LOW;
-long white_tgl_press_time = 0;
+unsigned long white_tgl_press_time = 0;
 
 // blue on/off button
 #define BLUE_BTN_OUT_SR 12
@@ -40,7 +72,7 @@ long white_tgl_press_time = 0;
 int blue_btn_curr_state = HIGH;
 int blue_btn_reading;
 int blue_btn_prev_state = LOW;
-long blue_btn_press_time = 0;
+unsigned long blue_btn_press_time = 0;
 
 // yellow toggle switch
 #define YELLOW_TGL_OUT_SR 13
@@ -48,7 +80,7 @@ long blue_btn_press_time = 0;
 int yellow_tgl_curr_state = HIGH;
 int yellow_tgl_reading;
 int yellow_tgl_prev_state = LOW;
-long yellow_tgl_press_time = 0;
+unsigned long yellow_tgl_press_time = 0;
 
 
 // green on/off button
@@ -57,7 +89,7 @@ long yellow_tgl_press_time = 0;
 int green_btn_curr_state = HIGH;
 int green_btn_reading;
 int green_btn_prev_state = LOW;
-long green_btn_press_time = 0;
+unsigned long green_btn_press_time = 0;
 
 // red toggle switch
 #define RED_TGL_OUT_SR 15
@@ -65,7 +97,7 @@ long green_btn_press_time = 0;
 int red_tgl_curr_state = HIGH;
 int red_tgl_reading;
 int red_tgl_prev_state = LOW;
-long red_tgl_press_time = 0;
+unsigned long red_tgl_press_time = 0;
 
 // yellow on/off button
 #define YELLOW_BTN_OUT 25
@@ -73,7 +105,7 @@ long red_tgl_press_time = 0;
 int yellow_btn_curr_state = HIGH;
 int yellow_btn_reading;
 int yellow_btn_prev_state = LOW;
-long yellow_btn_press_time = 0;
+unsigned long yellow_btn_press_time = 0;
 
 // phone dialer
 #define PHONE_IN 33
@@ -83,10 +115,10 @@ long yellow_btn_press_time = 0;
 int phone_counter = 0;
 int phone_last_state = LOW;
 int phone_true_state = LOW;
-long phone_state_change_time = 0;
+unsigned long phone_state_change_time = 0;
 int phone_cleared = 0;
 int phone_print_state = 0;
-long phone_lit_at = 0;
+unsigned long phone_lit_at = 0;
 
 // rgb potentiometer setup
 #define RED_RGB_POT_IN A0
@@ -98,15 +130,31 @@ long phone_lit_at = 0;
 #define GREEN_RGB_OUT 8
 #define BLUE_RGB_OUT 9
 
-//prox sensor
+// prox sensor
 #define PROX_IN A3
 
-//voltmeter 
+// voltmeter 
 #define VM_OUT 4
+
+//rotary encoder
+#define RE_A_IN A4
+#define RE_B_IN A5
+#define RE_BTN_IN A6
+int re_last_encoded_value = 0;
+int re_encoder_value = 0;
+int last_encoder_value = 0;
+
+// led light strip
+#define LIGHTSTRIP_NUM_LEDS 150
+#define LIGHTSTRIP_IN 6
+CRGB lightstrip[LIGHTSTRIP_NUM_LEDS];
+int current_lightstrip_led = 0;
+int lightstrip_speed = 10;
 
 
 void setup() {
   Serial.begin(9600);
+  randomSeed(analogRead(RANDOM_SEED));
 
   // turn off all leds on shift register to start
   ledShiftRegister.setAllLow();
@@ -169,6 +217,21 @@ void setup() {
   pinMode(PROX_IN, INPUT);
   pinMode(VM_OUT, OUTPUT);
 
+  // setup rotary encoder inputs
+  pinMode(RE_A_IN, INPUT_PULLUP);
+  pinMode(RE_B_IN, INPUT_PULLUP);
+  pinMode(RE_BTN_IN, INPUT_PULLUP);
+  // get the rotary encoder starting position
+  int re_lastMSB = digitalRead(RE_A_IN);
+  int re_lastLSB = digitalRead(RE_B_IN);
+  re_last_encoded_value = (re_lastMSB << 1) | re_lastLSB;
+
+  // setup lightstrip output
+  FastLED.addLeds<NEOPIXEL, LIGHTSTRIP_IN>(lightstrip, LIGHTSTRIP_NUM_LEDS);
+  FastLED.clear();
+  init_lightstrip(lightstrip, LIGHTSTRIP_NUM_LEDS);
+  
+
 }
 
 void loop() {
@@ -181,6 +244,8 @@ void loop() {
   process_rgb_dials();
 
   process_prox_sensor();
+
+  process_lightstrip();
 
 }
 
@@ -301,4 +366,25 @@ void process_prox_sensor() {
   int prox_reading = analogRead(PROX_IN);
   int vm_output = constrain(map(prox_reading, 100, 600, 0, 255), 0, 255);
   analogWrite(VM_OUT, vm_output);
+}
+
+void init_lightstrip(CRGB* lightstrip_in, int num_leds) {
+  int num_sections = 4;
+  int leds_per_section = num_leds / num_sections;
+  int currRed = random(0,256);
+  int currGreen = random(0,256);
+  int currBlue = random(0,256);
+  for(int currled = 0; currled < num_leds; currled++) {
+    lightstrip_in[currled] = CRGB(currRed, currGreen, currBlue);
+    if(currled % leds_per_section == 0) {
+      currRed = random(0, 256);
+      currGreen = random(0, 256);
+      currBlue = random(0, 256);
+    }
+  }
+  FastLED.show();
+}
+
+void process_lightstrip() {
+  
 }
