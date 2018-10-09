@@ -3,6 +3,7 @@
 #include <ShiftRegister74HC595.h>
 #include <SoftwareSerial.h>
 #include <DFRobotDFPlayerMini.h>
+#include <SparkFun_TB6612.h>
 #include <bitswap.h>
 #include <chipsets.h>
 #include <color.h>
@@ -167,6 +168,23 @@ uint16_t currtouched = 0;
 SoftwareSerial dfplayer_serial(DFPLAYER_RX, DFPLAYER_TX);
 DFRobotDFPlayerMini dfplayer;
 
+// motor hat setup
+#define MOTOR_AIN1 45
+#define MOTOR_AIN2 44
+#define MOTOR_PWMA 2
+#define MOTOR_BIN1 43
+#define MOTOR_BIN2 42
+#define MOTOR_PWMB 3
+#define MOTOR_STDBY 52
+Motor pc_fan = Motor(MOTOR_AIN1, MOTOR_AIN2, MOTOR_PWMA, 1, MOTOR_STDBY);
+Motor vibes = Motor(MOTOR_BIN1, MOTOR_BIN2, MOTOR_PWMB, 1, MOTOR_STDBY);
+
+// fan potentiometer setup
+#define FAN_POT_IN A7
+
+// FSR setup
+#define FSR_IN A8
+
 
 void setup() {
   Serial.begin(9600);
@@ -254,6 +272,12 @@ void setup() {
   dfplayer_serial.begin(9600);
   dfplayer.begin(dfplayer_serial);
   dfplayer.volume(20);
+
+  // fan input setup
+  pinMode(FAN_POT_IN, INPUT);
+
+  // fsr setup
+  pinMode(FSR_IN, INPUT);
 }
 
 void loop() {
@@ -270,6 +294,10 @@ void loop() {
   process_lightstrip();
 
   process_touch_sensor();
+
+  process_fan();
+
+  process_vibrate();
 
 }
 
@@ -473,4 +501,25 @@ void process_touch_sensor() {
 
   // reset our state
   lasttouched = currtouched;
+}
+
+void process_fan() {
+  int pot_reading = analogRead(FAN_POT_IN);
+  int fan_speed = constrain(map(pot_reading, 20, 1023, 0, 255), 0, 255);
+
+  if(fan_speed == 0) {
+    pc_fan.brake();
+  } else {
+    pc_fan.drive(fan_speed);
+  }
+}
+
+void process_vibrate() {
+  int fsr_reading = analogRead(FSR_IN);
+  int vibrate_speed = constrain(map(fsr_reading, 20, 1000, 0, 255), 0, 255);
+  if(vibrate_speed == 0) {
+    vibes.brake();
+  } else {
+    vibes.drive(vibrate_speed);
+  }
 }
