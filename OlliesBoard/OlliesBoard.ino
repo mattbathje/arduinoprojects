@@ -63,8 +63,8 @@ int red_btn_prev_state = LOW;
 unsigned long red_btn_press_time = 0;
 
 // white toggle switch
-#define WHITE_TGL_OUT_SR 11
-#define WHITE_TGL_IN 27
+#define WHITE_TGL_OUT_SR 13
+#define WHITE_TGL_IN 29
 int white_tgl_curr_state = HIGH;
 int white_tgl_reading;
 int white_tgl_prev_state = LOW;
@@ -79,8 +79,8 @@ int blue_btn_prev_state = LOW;
 unsigned long blue_btn_press_time = 0;
 
 // yellow toggle switch
-#define YELLOW_TGL_OUT_SR 13
-#define YELLOW_TGL_IN 29
+#define YELLOW_TGL_OUT_SR 11
+#define YELLOW_TGL_IN 27
 int yellow_tgl_curr_state = HIGH;
 int yellow_tgl_reading;
 int yellow_tgl_prev_state = LOW;
@@ -405,9 +405,9 @@ void process_rgb_dials() {
   int green_val = analogRead(GREEN_RGB_POT_IN);
   int blue_val = analogRead(BLUE_RGB_POT_IN);
 
-  red_val = constrain(map(red_val, 0, 1023, 0, 255), 0, 255);
-  green_val = constrain(map(green_val, 0, 1023, 0, 255), 0, 255);
-  blue_val = constrain(map(blue_val, 0, 1023, 0, 255), 0, 255);
+  red_val = constrain(map(red_val, 25, 1023, 0, 255), 0, 255);
+  green_val = constrain(map(green_val, 25, 1023, 0, 255), 0, 255);
+  blue_val = constrain(map(blue_val, 25, 1023, 0, 255), 0, 255);
 
   analogWrite(RED_RGB_OUT, red_val);
   analogWrite(GREEN_RGB_OUT, green_val);
@@ -505,7 +505,7 @@ void process_touch_sensor() {
 
 void process_fan() {
   int pot_reading = analogRead(FAN_POT_IN);
-  int fan_speed = constrain(map(pot_reading, 20, 1023, 0, 255), 0, 255);
+  int fan_speed = constrain(map(pot_reading, 40 , 1023, 0, 255), 0, 255);
 
   if(fan_speed == 0) {
     pc_fan.brake();

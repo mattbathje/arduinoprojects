@@ -9,7 +9,7 @@
 
 #define STDBY 52
 
-#define FSR_PIN A14
+#define FSR_PIN A8
 
 #define POT_PIN A15
 

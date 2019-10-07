@@ -22,16 +22,15 @@ void setup()
 void loop()
 {
   int reading = digitalRead(in);
-
   if ((millis() - lastStateChangeTime) > dialHasFinishedRotatingAfterMs) {
     // the dial isn't being dialed, or has just finished being dialed.
     if (needToPrint) {
       // if it's only just finished being dialed, we need to send the number down the serial
       // line and reset the count. We mod the count by 10 because '0' will send 10 pulses.
-      Serial.print(count % 10, DEC);
+      Serial.println(count % 10, DEC);
 
       for(int i=0; i<(count%10); i++) {
-        Serial.println(count);
+        //Serial.println(count);
         digitalWrite(out, HIGH);
         delay(100);
         digitalWrite(out, LOW);

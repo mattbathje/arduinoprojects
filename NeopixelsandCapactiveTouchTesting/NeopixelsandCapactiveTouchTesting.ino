@@ -72,9 +72,9 @@ void setup() {
   randomSeed(analogRead(0));
 
   // light strip setup
-  FastLED.addLeds<NEOPIXEL, LIGHTSTRIP1_PIN>(lightstrip1, LIGHTSTRIP1_NUM_LEDS);
-  FastLED.clear();
-  init_lightstrip(lightstrip1, LIGHTSTRIP1_NUM_LEDS);
+ // FastLED.addLeds<NEOPIXEL, LIGHTSTRIP1_PIN>(lightstrip1, LIGHTSTRIP1_NUM_LEDS);
+ // FastLED.clear();
+  //init_lightstrip(lightstrip1, LIGHTSTRIP1_NUM_LEDS);
 
 
   // rotary encoder setup
@@ -95,6 +95,7 @@ void setup() {
 
   // touch sensor setup
   cap.begin(TOUCH_ADDR);
+  Serial.println("hereccc");
 }
 
 void loop() {
@@ -144,6 +145,7 @@ void loop() {
   for (uint8_t i=0; i<12; i++) {
     // it if *is* touched and *wasnt* touched before, alert!
     if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
+      Serial.println("hereb");
       if(i == 0) {
         Serial.println("0 touched!");
       }

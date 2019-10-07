@@ -1,5 +1,5 @@
 #define METER_PIN 4
-#define PROX_PIN A11
+#define PROX_PIN A3
 
 void setup() {
   // put your setup code here, to run once:
