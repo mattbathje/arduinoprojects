@@ -1,3 +1,28 @@
+// Arduino Mega busy box
+// note: for the dfplayer, I stopped using the "official" library because it was too slow. Instead used:
+// https://github.com/PowerBroker2/DFPlayerMini_Fast
+// the stuff that relies more on timers (rotary phone, chasing leds) would have problems with the normal library
+
+// starting point for phone dialer code:
+// https://www.instructables.com/id/Interface-a-rotary-phone-dial-to-an-Arduino/
+
+// starting points for LED chasing:
+// https://forum.arduino.cc/index.php?topic=323019.0
+// https://gist.github.com/fasmide/9d820e615ac736501ce0e4c97594bbfd
+// https://github.com/GyroGearloose/FastLED_Rotary_Encoder
+
+// starting point for how to do shift registers:
+// https://www.arduino.cc/en/Tutorial/ShiftOut
+
+// starting point for how to read rotary encoder
+// https://forum.arduino.cc/index.php?topic=262360.0
+
+// initial idea/recipe for conductive paint
+// https://www.instructables.com/id/Conductive-Paint/
+
+// for the other components (capacitive touch sensor, prox meter, etc.) I mostly used the Adafruit/Sparkfun samples as a starting point
+
+
 #include <Arduino.h>
 #include <Adafruit_MPR121.h>
 #include <ShiftRegister74HC595.h>
