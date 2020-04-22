@@ -2,7 +2,7 @@
 #include <Adafruit_MPR121.h>
 #include <ShiftRegister74HC595.h>
 #include <SoftwareSerial.h>
-#include <DFRobotDFPlayerMini.h>
+#include <DFPlayerMini_Fast.h>
 #include <SparkFun_TB6612.h>
 #include <bitswap.h>
 #include <chipsets.h>
@@ -149,12 +149,15 @@ int re_encoder_value = 0;
 int re_last_encoder_value = 0;
 
 // led light strip
-#define LIGHTSTRIP_NUM_LEDS 150
+#define LIGHTSTRIP_NUM_LEDS 79
 #define LIGHTSTRIP_IN 6
 CRGB lightstrip[LIGHTSTRIP_NUM_LEDS];
 
 // address of touch sensor
 #define TOUCH_ADDR 0x5A
+// id of duck on touch sensor
+#define DUCK_TOUCH_ID 0
+#define HINGE_TOUCH_ID 1
 
 // touch sensor setup
 Adafruit_MPR121 touch_sensor = Adafruit_MPR121();
@@ -166,7 +169,13 @@ uint16_t currtouched = 0;
 #define DFPLAYER_RX 10
 #define DFPLAYER_TX 11
 SoftwareSerial dfplayer_serial(DFPLAYER_RX, DFPLAYER_TX);
-DFRobotDFPlayerMini dfplayer;
+DFPlayerMini_Fast dfplayer;
+int old_volume_reading = 0;
+
+#define DUCK_SOUND 1
+#define HINGE_SOUND 2
+#define LOW_RAND_SOUND 5
+#define HIGH_RAND_SOUND 20
 
 // motor hat setup
 #define MOTOR_AIN1 45
@@ -185,6 +194,8 @@ Motor vibes = Motor(MOTOR_BIN1, MOTOR_BIN2, MOTOR_PWMB, 1, MOTOR_STDBY);
 // FSR setup
 #define FSR_IN A8
 
+// volume knob
+#define VOL_POT_IN A9
 
 void setup() {
   Serial.begin(9600);
@@ -236,6 +247,7 @@ void setup() {
     ledShiftRegister.set(i, LOW);
   }
 
+
   // setup single LED pin
   pinMode(SINGLE_LED_OUT, OUTPUT);
 
@@ -268,16 +280,21 @@ void setup() {
   // touch sensor setup
   touch_sensor.begin(TOUCH_ADDR);
 
+  //volume knob setup
+  pinMode(VOL_POT_IN, INPUT);
+
   // dfplayer setup
   dfplayer_serial.begin(9600);
   dfplayer.begin(dfplayer_serial);
-  dfplayer.volume(20);
-
+  // this is done by process_volume()   dfplayer.volume(20);
+  old_volume_reading = analogRead(VOL_POT_IN);
+  process_volume();
   // fan input setup
   pinMode(FAN_POT_IN, INPUT);
 
   // fsr setup
   pinMode(FSR_IN, INPUT);
+
 }
 
 void loop() {
@@ -299,14 +316,18 @@ void loop() {
 
   process_vibrate();
 
+  process_volume();
+
 }
 
 void process_button_presses() {
+  bool button_pressed = false;
   // red button
   if ((red_btn_reading != red_btn_prev_state) && (millis() - red_btn_press_time > DEBOUNCE)) {
     ledShiftRegister.set(RED_BTN_OUT_SR, !red_btn_reading);
     red_btn_prev_state = red_btn_reading;
     red_btn_press_time = current_program_time;
+    button_pressed = true;
   }
   red_btn_reading = digitalRead(RED_BTN_IN);
 
@@ -315,6 +336,7 @@ void process_button_presses() {
     ledShiftRegister.set(WHITE_TGL_OUT_SR, white_tgl_reading);
     white_tgl_prev_state = white_tgl_reading;
     white_tgl_press_time = current_program_time;
+    button_pressed = true;
   }
   white_tgl_reading = digitalRead(WHITE_TGL_IN);
 
@@ -323,6 +345,7 @@ void process_button_presses() {
     ledShiftRegister.set(BLUE_BTN_OUT_SR, !blue_btn_reading);
     blue_btn_prev_state = blue_btn_reading;
     blue_btn_press_time = current_program_time;
+    button_pressed = true;
   }
   blue_btn_reading = digitalRead(BLUE_BTN_IN);
 
@@ -331,6 +354,7 @@ void process_button_presses() {
     ledShiftRegister.set(YELLOW_TGL_OUT_SR, yellow_tgl_reading);
     yellow_tgl_prev_state = yellow_tgl_reading;
     yellow_tgl_press_time = current_program_time;
+    button_pressed = true;
   }
   yellow_tgl_reading = digitalRead(YELLOW_TGL_IN);
 
@@ -339,6 +363,7 @@ void process_button_presses() {
     ledShiftRegister.set(GREEN_BTN_OUT_SR, !green_btn_reading);
     green_btn_prev_state = green_btn_reading;
     green_btn_press_time = current_program_time;
+    button_pressed = true;
   }
   green_btn_reading = digitalRead(GREEN_BTN_IN);
 
@@ -347,6 +372,7 @@ void process_button_presses() {
     ledShiftRegister.set(RED_TGL_OUT_SR, red_tgl_reading);
     red_tgl_prev_state = red_tgl_reading;
     red_tgl_press_time = current_program_time;
+     button_pressed = true;
   }
   red_tgl_reading = digitalRead(RED_TGL_IN);
 
@@ -356,13 +382,20 @@ void process_button_presses() {
     digitalWrite(YELLOW_BTN_OUT, !yellow_btn_reading);
     yellow_btn_prev_state = yellow_btn_reading;
     yellow_btn_press_time = current_program_time;
+    button_pressed = true;
   }
   yellow_btn_reading = digitalRead(YELLOW_BTN_IN);
+
+  if(button_pressed) {
+    dfplayer.play(random(LOW_RAND_SOUND, HIGH_RAND_SOUND));
+    button_pressed = false;
+  }
 
 }
 
 void process_phone_dial() {
   int phone_curr_reading = digitalRead(PHONE_IN);
+
   if ((millis() - phone_state_change_time) > PHONE_DIAL_LENGTH) {
     if (phone_print_state) {
       for (int i = 0; i < phone_counter; i++) {
@@ -488,9 +521,11 @@ void process_touch_sensor() {
   for (uint8_t i = 0; i < 12; i++) {
     // it if *is* touched and *wasnt* touched before, alert!
     if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
-      if (i == 0) {
-        dfplayer.play(2);
-        // DO SOMETHING ABOUT BEING TOUCHED Serial.println("0 touched!");
+      if (i == DUCK_TOUCH_ID) {
+        dfplayer.play(DUCK_SOUND);
+      }
+      if (i == HINGE_TOUCH_ID) {
+        dfplayer.play(HINGE_SOUND);
       }
     }
     // if it *was* touched and now *isnt*, alert!
@@ -522,4 +557,14 @@ void process_vibrate() {
   } else {
     vibes.drive(vibrate_speed);
   }
+}
+
+void process_volume() {
+  int volume_reading = analogRead(VOL_POT_IN);
+  if(volume_reading != old_volume_reading) {
+    old_volume_reading = volume_reading;
+    int volume = constrain(map(volume_reading, 35, 1080, 0, 30), 0, 30);
+    dfplayer.volume(volume);
+  }
+ 
 }

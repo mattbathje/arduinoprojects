@@ -28,9 +28,9 @@ void loop()
       // if it's only just finished being dialed, we need to send the number down the serial
       // line and reset the count. We mod the count by 10 because '0' will send 10 pulses.
       Serial.println(count % 10, DEC);
-
-      for(int i=0; i<(count%10); i++) {
-        //Serial.println(count);
+ Serial.println(count);
+      for(int i=0; i<(count); i++) {
+       
         digitalWrite(out, HIGH);
         delay(100);
         digitalWrite(out, LOW);
